@@ -1,0 +1,69 @@
+# ==============================================================================
+# ThermalPINN Configuration File
+# Simulation: Baseline Bi-Porous Vapor Chamber (Conjugate Heat Transfer)
+# Standard: Q1
+# ==============================================================================
+
+project_name: "VaporChamber_BiPorous_Baseline"
+version: "1.0.0"
+
+geometry:
+  domain_size:
+    length_x: 0.050  # [m] (50 mm)
+    height_y: 0.030  # [m] (30 mm)
+  wick_structure:
+    type: "bi-porous"
+    thickness: 0.002 # [m]
+  mesh_free_sampling:
+    n_domain: 25000   # Number of collocation points in PDE domain
+    n_boundary: 5000  # Number of collocation points on boundaries
+    n_interface: 2000 # Points along the solid-fluid interface (Crucial for CHT)
+
+materials:
+  solid_wick_copper:
+    density: 8960.0       # [kg/m^3]
+    specific_heat: 385.0  # [J/kg.K]
+    thermal_conductivity: 400.0 # [W/m.K]
+    porosity: 0.65        # Bi-porous effective porosity
+    permeability: 5.0e-11 # [m^2]
+    forchheimer_coeff: 0.08
+  fluid_water_liquid:
+    density: 998.2        # [kg/m^3]
+    dynamic_viscosity: 1.003e-3 # [Pa.s]
+    specific_heat: 4182.0 # [J/kg.K]
+    thermal_conductivity: 0.6 # [W/m.K]
+    latent_heat: 2260000.0 # [J/kg]
+
+boundary_conditions:
+  heat_source:
+    type: "neumann"
+    value: 1500000.0 # [W/m^2] -> 150 W/cm^2 (High-power AI chip load)
+    location: "bottom_center"
+    width: 0.015 # [m]
+  condenser:
+    type: "dirichlet"
+    value: 313.15 # [K] -> 40 °C
+    location: "top_wall"
+
+neural_network:
+  architecture: "FullyConnectedPINN"
+  hidden_layers: [3, 128, 128, 128, 128, 128, 128, 5] # Inputs: [x, y, t] -> Outputs: [u, v, p, Tf, Ts]
+  activation_function: "tanh"
+  initializer: "Xavier_Normal"
+
+optimization:
+  optimizer: "Adam"
+  learning_rate: 1.0e-3
+  scheduler: "ExponentialLR"
+  gamma: 0.95
+  max_epochs: 15000
+  loss_weights:
+    w_data: 1.0
+    w_pde: 0.1
+    w_bc: 10.0
+    w_interface: 5.0  # High penalty for thermal interface mismatch
+
+export:
+  save_matlab: true
+  save_vtk: true
+  log_frequency: 500
